@@ -8,11 +8,11 @@
 
 #define ProgramManagerSocket "/tmp/programManager.socket"
 
-int main(){
+int main(int argc, char *argv[]){
 
 
 	int sock, con, i;
-	char buff[] = "03AAFF0\0";
+	char buff[] = "03AAAAFFFF\0";
 	struct sockaddr_un server_addr;		
 	
 	memset(&server_addr, 0, sizeof(struct sockaddr_un));
@@ -25,7 +25,12 @@ int main(){
 
 	con = connect(sock, (struct sockaddr *) &server_addr, sizeof(struct sockaddr_un));
 
-	write(sock, buff, strlen(buff));					
+	if(argc == 2){
+		write(sock, argv[1], strlen(buff));
+	}
+	else{
+		write(sock, buff, strlen(buff));
+	}
 
 	close(sock);
 		

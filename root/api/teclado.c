@@ -12,7 +12,7 @@ int main(){
 
 
 	int sock, con, i;
-	char buff[] = "0212345\0";
+	char buff[] = "0201630308200\0";
 	struct sockaddr_un server_addr;		
 	
 	memset(&server_addr, 0, sizeof(struct sockaddr_un));
