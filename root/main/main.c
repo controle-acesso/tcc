@@ -5,201 +5,356 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <mysql/mysql.h>
+#include <errno.h>
 
 #define ProgramManagerSocket "/tmp/programManager.socket"
 #define alarmSocket "/tmp/alarm.socket"
 #define lockSocket "/tmp/lock.socket"
-
-typedef struct {
-	char *cmd;
-	char *id;
-	
-} message;
-
-message decode(char *m){
-	message msg;
-	int i=0;
-	int j=0;
-	char *cmd = malloc(2*sizeof(char));
-	char *id = malloc(11*sizeof(char));
-	memset(cmd,0,2*sizeof(char));
-	memset(id,0,11*sizeof(char));
-
-	while(m[i] != NULL){
-		if(i < 2){
-			cmd[i] = m[i];
-		}
-		else{
-			id[j] = m[i];
-			j++;
-		}
-		i++;
-	}
-	msg.cmd = cmd;
-	msg.id = id;
-	return msg;
-}
-
-int searchDBKeyboard(char *m){
-	MYSQL mysql;	
-	MYSQL_RES *resp;		
-	char query[48];	
-	mysql_init(&mysql);
-	if(mysql_real_connect(&mysql,"localhost","tcc","tcc","tccDB",0,NULL,0)){
-		printf("Connected\n");
-		memset(&query,0,sizeof(query));
-		strcat(query,"select * from user where login='");
-		printf("%s\n",query);
-		strcat(query,m);
-		strcat(query,"';");
-		printf("%s\n",query);
-		if(mysql_query(&mysql,query) == 0){
-			printf("Query sent\n");
-			resp = mysql_store_result(&mysql);
-			if(resp){
-				printf("Result stored\n");	
-				if(mysql_fetch_row(resp) > 0){
-					printf("Data found\n");
-					mysql_close(&mysql);
-					return 1;
-				}
-				else{
-					printf("Data not found\n");					
-					mysql_close(&mysql);
-					return -1;
-				} 		
-			}
-
-		}
-	}	
-	mysql_close(&mysql);
-}
-
-int searchDBRFID(char *m){
-	MYSQL mysql;	
-	MYSQL_RES *resp;		
-	char query[47];	
-	mysql_init(&mysql);
-	if(mysql_real_connect(&mysql,"localhost","tcc","tcc","tccDB",0,NULL,0)){
-		printf("Connected\n");
-		memset(&query,0,sizeof(query));
-		strcat(query,"select * from user_tag where tag_id='");
-		printf("%s\n",query);
-		strcat(query,m);
-		strcat(query,"';");
-		printf("%s\n",query);
-		if(mysql_query(&mysql,query) == 0){
-			printf("Query sent\n");
-			resp = mysql_store_result(&mysql);
-			if(resp){
-				printf("Result stored\n");	
-				if(mysql_fetch_row(resp) > 0){
-					printf("Data found\n");
-					mysql_close(&mysql);
-					return 1;
-				}
-				else{
-					printf("Data not found\n");					
-					mysql_close(&mysql);
-					return -1;
-				} 		
-			}
-
-		}
-	}	
-	mysql_close(&mysql);
-}
-
+#define databaseSocket "/tmp/dataBase.socket"
 
 int main(){	
 
-	int pmsock, peersock, bnd, lnt, alarmsock, locksock;
-	char buff[14];		
-	struct sockaddr_un my_addr, peer_addr, alarm_addr, lock_addr;
+	int pmsock, peersock, bnd, lnt, alarmsock, locksock, databasesock, con;			
+	struct sockaddr_un my_addr, peer_addr, alarm_addr, lock_addr, database_addr;
 	socklen_t peer_addr_size;
-
 	memset(&alarm_addr, 0, sizeof(struct sockaddr_un));
-	alarm_addr.sun_family = AF_UNIX;
-	strncpy(alarm_addr.sun_path, alarmSocket, sizeof(alarm_addr.sun_path) - 1);
 	memset(&lock_addr, 0, sizeof(struct sockaddr_un));
+	memset(&database_addr, 0, sizeof(struct sockaddr_un));
+	memset(&my_addr, 0, sizeof(struct sockaddr_un));
+	alarm_addr.sun_family = AF_UNIX;
 	lock_addr.sun_family = AF_UNIX;
-	strncpy(lock_addr.sun_path, lockSocket, sizeof(lock_addr.sun_path) - 1);		
-			
+	database_addr.sun_family = AF_UNIX;
+	my_addr.sun_family = AF_UNIX;
+	strncpy(alarm_addr.sun_path, alarmSocket, sizeof(alarm_addr.sun_path) - 1);	
+	strncpy(lock_addr.sun_path, lockSocket, sizeof(lock_addr.sun_path) - 1);
+	strncpy(database_addr.sun_path, databaseSocket, sizeof(database_addr.sun_path) - 1);	
+	strncpy(my_addr.sun_path, ProgramManagerSocket, sizeof(my_addr.sun_path) - 1);		
 	
-	pmsock = socket(AF_UNIX, SOCK_STREAM, 0);
 	unlink(ProgramManagerSocket);
 
-	memset(buff,0, 14*sizeof(char));
-	puts(buff);
+	char buff[11];
+	char cmd[3];
+	int alarm_flag = 0;
+	memset(buff,0, 11);
+	memset(cmd, 0, 11);
+	
+	pmsock = socket(AF_UNIX, SOCK_STREAM, 0);
 
-	memset(&my_addr, 0, sizeof(struct sockaddr_un));
-	my_addr.sun_family = AF_UNIX;
-	strncpy(my_addr.sun_path, ProgramManagerSocket, sizeof(my_addr.sun_path) - 1);
+	if(pmsock < 0){
+		printf("socket() failed: %s\n", strerror(errno));
+		exit(1);
+	}	
 
 	bnd = bind(pmsock, (struct sockaddr *) &my_addr, sizeof(struct sockaddr_un));
 
+	if(bnd < 0){
+		printf("bind() failed: %s\n", strerror(errno));
+		exit(1);
+	}
+
 	lnt = listen(pmsock, 10);
 
-	printf("Program Manager: Socket:%d Bind:%d Listen:%d Local:%s\n",pmsock,bnd,lnt,ProgramManagerSocket);
+	if(lnt < 0){
+		printf("listen() failed: %s\n", strerror(errno));
+		exit(1);
+	}	
+
+	printf("Program Manager: Socket:%d .\n",pmsock);
 	
 	peer_addr_size = sizeof(struct sockaddr_un);
 
-	message msg;
+	while(1){
 
-	while(1){		
-		peersock = accept(pmsock, (struct sockaddr *) &peer_addr, &peer_addr_size);		
-		read(peersock,buff,13);
-		puts(buff);		
-		msg = decode(buff);		
-		switch((int)strtol(msg.cmd,NULL,16)){			
-			case 0x02:
-				if(searchDBKeyboard(msg.id) > 0){
-					printf("From keyboad: User found with password %s!\n", msg.id);
-					alarmsock = socket(AF_UNIX, SOCK_STREAM, 0);
-					while(connect(alarmsock, (struct sockaddr *) &alarm_addr, sizeof(struct sockaddr_un)) < 0){
-						sleep(1);
-					}						
-					write(alarmsock, "07\0", 3);
-					close(alarmsock);
-					locksock = socket(AF_UNIX, SOCK_STREAM, 0);
-					while(connect(locksock, (struct sockaddr *) &lock_addr, sizeof(struct sockaddr_un)) < 0){
-						sleep(1);
-					}						
-					write(locksock, "01\0", 3);
-					close(locksock);
+		peersock = accept(pmsock, (struct sockaddr *) &peer_addr, &peer_addr_size);				
+		read(peersock,buff,10);
+		printf("=============================================================\n");
+		printf("=============================================================\n");		
+		printf("Message recieved: %s.\n",buff);
 
+		cmd[0] = buff[0];
+		cmd[1] = buff[1];
+		cmd[2] = '\0';
+
+		printf("Command is: %s.\n",cmd);
+
+		switch((int)strtol(cmd,NULL,16)){
+
+			case 0x00: // Do nothing
+								
+				break;
+
+			case 0x01: // Probrably it will be changed to another cmd code.
+								
+				break;
+			
+			case 0x02: // Request validation from keyboard
+
+				printf("=============================================================\n");
+				databasesock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+				if(databasesock < 0){
+					printf("socket() failed: %s\n", strerror(errno));
+					exit(1);
 				}
-				break;
-			case 0x03:
-				if(searchDBRFID(msg.id) > 0){
-					printf("From RFID: User found with password %s!\n", msg.id);
-					alarmsock = socket(AF_UNIX, SOCK_STREAM, 0);
-					while(connect(alarmsock, (struct sockaddr *) &alarm_addr, sizeof(struct sockaddr_un)) < 0){
-						sleep(1);
-					}						
-					write(alarmsock, "07\0", 3);
-					close(alarmsock);
-					locksock = socket(AF_UNIX, SOCK_STREAM, 0);
-					while(connect(locksock, (struct sockaddr *) &lock_addr, sizeof(struct sockaddr_un)) < 0){
-						sleep(1);
-					}						
-					write(locksock, "01\0", 3);
-					close(locksock);
+
+				printf("Socket:%d\n",databasesock);	
+
+				con = connect(databasesock, (struct sockaddr *) &database_addr, sizeof(struct sockaddr_un));
+
+				if(con < 0){
+					printf("connect() failed: %s\n", strerror(errno));
+					close(databasesock);
+					exit(1);
 				}				
+
+				printf("Message to be sent: %s\n",buff);	
+
+				write(databasesock,buff,strlen(buff));
+
+				if(write < 0){
+					printf("write() failed: %s\n", strerror(errno));
+					close(databasesock);
+					exit(1);
+				}
+
+				printf("Message sent successfuly.\n");
+
+				close(databasesock);
+				
 				break;
-			default:
-				printf("Comando desconhecido\n");
+
+			case 0x03: // Request validation from RFID
+
+				printf("=============================================================\n");
+				databasesock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+				if(databasesock < 0){
+					printf("socket() failed: %s\n", strerror(errno));
+					exit(1);
+				}
+
+				printf("Socket:%d\n",databasesock);	
+
+				con = connect(databasesock, (struct sockaddr *) &database_addr, sizeof(struct sockaddr_un));
+
+				if(con < 0){
+					printf("connect() failed: %s\n", strerror(errno));
+					close(databasesock);
+					exit(1);
+				}				
+
+				printf("Message to be sent: %s\n",buff);	
+
+				write(databasesock,buff,strlen(buff));
+
+				if(write < 0){
+					printf("write() failed: %s\n", strerror(errno));
+					close(databasesock);
+					exit(1);
+				}
+
+				printf("Message sent successfuly.\n");
+
+				close(databasesock);
+								
+				break;
+
+			case 0x04: // Access granted
+
+				printf("=============================================================\n");
+				alarmsock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+				if(alarmsock < 0){
+					printf("socket() failed: %s\n", strerror(errno));
+					exit(1);
+				}
+
+				printf("Socket:%d\n",alarmsock);	
+
+				con = connect(alarmsock, (struct sockaddr *) &alarm_addr, sizeof(struct sockaddr_un));
+
+				if(con < 0){
+					printf("connect() failed: %s\n", strerror(errno));
+					close(alarmsock);
+					exit(1);
+				}				
+
+				printf("Message to be sent: 0B\n");	
+
+				write(alarmsock,"0B", 2);
+
+				if(write < 0){
+					printf("write() failed: %s\n", strerror(errno));
+					close(alarmsock);
+					exit(1);
+				}
+
+				printf("Message sent successfuly.\n");
+
+				close(alarmsock);
+
+				printf("=============================================================\n");
+				alarmsock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+				if(alarmsock < 0){
+					printf("socket() failed: %s\n", strerror(errno));
+					exit(1);
+				}
+
+				printf("Socket:%d\n",alarmsock);	
+
+				con = connect(alarmsock, (struct sockaddr *) &alarm_addr, sizeof(struct sockaddr_un));
+
+				if(con < 0){
+					printf("connect() failed: %s\n", strerror(errno));
+					close(alarmsock);
+					exit(1);
+				}				
+
+				printf("Message to be sent: 07\n");	
+
+				write(alarmsock,"07", 2);
+
+				if(write < 0){
+					printf("write() failed: %s\n", strerror(errno));
+					close(alarmsock);
+					exit(1);
+				}
+
+				printf("Message sent successfuly.\n");
+
+				close(alarmsock);
+
+				alarm_flag = 0;
+
+				printf("=============================================================\n");
+				locksock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+				if(locksock < 0){
+					printf("socket() failed: %s\n", strerror(errno));
+					exit(1);
+				}
+
+				printf("Socket:%d\n",locksock);	
+
+				con = connect(locksock, (struct sockaddr *) &lock_addr, sizeof(struct sockaddr_un));
+
+				if(con < 0){
+					printf("connect() failed: %s\n", strerror(errno));
+					close(locksock);
+					exit(1);
+				}				
+
+				printf("Message to be sent: 01\n");	
+
+				write(locksock,"01", 2);
+
+				if(write < 0){
+					printf("write() failed: %s\n", strerror(errno));
+					close(locksock);
+					exit(1);
+				}
+
+				printf("Message sent successfuly.\n");
+
+				close(locksock);
+
+
+
+								
+				break;
+
+			case 0x05: // Access denied
+								
+				break;
+
+			case 0x0A: // Unauthorized access
+
+				alarm_flag = 1;
+				printf("Unauthorized access!! alarm_flag status : %d.\n", alarm_flag);
+								
+				break;
+
+			case 0x0C: // Open door from inside
+
+				printf("=============================================================\n");
+				alarmsock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+				if(alarmsock < 0){
+					printf("socket() failed: %s\n", strerror(errno));
+					exit(1);
+				}
+
+				printf("Socket:%d\n",alarmsock);	
+
+				con = connect(alarmsock, (struct sockaddr *) &alarm_addr, sizeof(struct sockaddr_un));
+
+				if(con < 0){
+					printf("connect() failed: %s\n", strerror(errno));
+					close(alarmsock);
+					exit(1);
+				}				
+
+				printf("Message to be sent: 07\n");	
+
+				write(alarmsock,"07", 2);
+
+				if(write < 0){
+					printf("write() failed: %s\n", strerror(errno));
+					close(alarmsock);
+					exit(1);
+				}
+
+				printf("Message sent successfuly.\n");
+
+				close(alarmsock);
+
+				printf("=============================================================\n");
+				locksock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+				if(locksock < 0){
+					printf("socket() failed: %s\n", strerror(errno));
+					exit(1);
+				}
+
+				printf("Socket:%d\n",locksock);	
+
+				con = connect(locksock, (struct sockaddr *) &lock_addr, sizeof(struct sockaddr_un));
+
+				if(con < 0){
+					printf("connect() failed: %s\n", strerror(errno));
+					close(locksock);
+					exit(1);
+				}				
+
+				printf("Message to be sent: 01\n");	
+
+				write(locksock,"01", 2);
+
+				if(write < 0){
+					printf("write() failed: %s\n", strerror(errno));
+					close(locksock);
+					exit(1);
+				}
+
+				printf("Message sent successfuly.\n");
+
+				close(locksock);
+								
+				break;
+	
+			default: // Do nothing
+				printf("=============================================================\n");
+				printf("Unknown command.\n");
 				break;
 		}
-		//memset(buff,0,13*sizeof(char));
-		//printf("%s\n",buf);
-		puts(msg.id);
+		
+		cmd[0] = '0';
+		cmd[1] = '0';
+		cmd[2] = '\0';
+
 		memset(buff,0,14*sizeof(char));
-		//memset(msg.id,0,11*sizeof(char));
-		free(msg.id);
-		free(msg.cmd);
-		//puts(msg.id);
+		
 		close(peersock);
 		
 	}
