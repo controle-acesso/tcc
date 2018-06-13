@@ -2,9 +2,10 @@ import socket
 import os
 import sys
 import time
-import RPi.GPIO
+import gpiozero
 
 lockSocket = "/tmp/lock.socket"
+led = gpiozero.LED(17)
 
 try:
     os.unlink(lockSocket)
@@ -57,7 +58,9 @@ while True:
 
 	if( cmd == 0x01):
 		print("Porta aberta")
+		led.on()
 		time.sleep(3)
+		led.off()
 		print("Porta fechada")
 	else:
 		print("Unknown command")
