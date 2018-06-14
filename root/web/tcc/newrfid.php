@@ -9,10 +9,10 @@
 		$mysql = new mysqli("localhost","tcc","tcc","tccDB");
 		$result = $mysql->query("insert into tag(tag_id) values('$rfid');");	
 		$mysql->close();
-		header("location:http://localhost/tcc/rfid.php");
+		header("location:/tcc/rfid.php");
 		
 	}
 	else{
-		header("location:http://localhost/tcc/");
+		header("location:/tcc/");
 	}
 ?>

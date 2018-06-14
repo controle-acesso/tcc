@@ -16,6 +16,6 @@
 		$mysql->close();
 	}
 	else{
-		header("location:http://localhost/tcc/");
+		header("location:/tcc/");
 	}
 ?>

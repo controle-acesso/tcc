@@ -22,9 +22,9 @@
           			<h3>Opções</h3>
         		</div>
       		</div>
-        <a class="w3-bar-item w3-button" href="http://localhost/tcc/user.php">Início</a>
-        <a class="w3-bar-item w3-button" href="http://localhost/tcc/edituser.html">Editar perfil</a>    	
-      	<a class="w3-bar-item w3-button" href="http://localhost/tcc/logout.php">Sair</a>
+        <a class="w3-bar-item w3-button" href="/tcc/user.php">Início</a>
+        <a class="w3-bar-item w3-button" href="/tcc/edituser.html">Editar perfil</a>    	
+      	<a class="w3-bar-item w3-button" href="/tcc/logout.php">Sair</a>
     	</nav>
 		<header class="w3-bar w3-theme">
 			<button class="w3-bar-item w3-button w3-xxxlarge" onclick="openSidebar()">&#9776;</button>

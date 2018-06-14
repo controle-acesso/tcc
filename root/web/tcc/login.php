@@ -18,18 +18,18 @@
 			$_SESSION["func"] = $row["func"];
 			
 			if($row["func"] == "admin"){				
-				header('location:http://localhost/tcc/adm.php');
+				header('location:http:/tcc/adm.php');
 			}
 			else{
-				header('location:http://localhost/tcc/user.php');
+				header('location:http:/tcc/user.php');
 			}		
 		}
 		else{
-			header('location:http://localhost/tcc/');
+			header('location:/tcc/');
 		}
 	}
 	else{
-			header('location:http://localhost/tcc/');
+			header('location:/tcc/');
 		}
 	
 	function format_data($data){

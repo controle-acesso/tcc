@@ -3,7 +3,7 @@
 	session_start();
 
 	if(!isset($_SESSION["name"])){
-		header("location:http://localhost/tcc");
+		header("location:/tcc");
 	}
 	else{
 		$name = $_SESSION["name"];

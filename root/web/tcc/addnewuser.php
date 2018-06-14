@@ -22,11 +22,11 @@
 			$result = $mysql->query("insert into user_tag(user_id, tag_id) values('$user_id','$tag_id');");
 		}
 		$mysql->close();
-		header('location:http://localhost/tcc/newuser.php');
+		header('location:http:/tcc/newuser.php');
 		
 	}
 	else{
-		header("location:http://localhost/tcc/");
+		header("location:/tcc/");
 	}
 
 	function format_data($data){

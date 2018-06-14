@@ -6,6 +6,6 @@
 
 	session_destroy();
 
-	header("location:http://localhost/tcc/");
+	header("location:/tcc/");
 
 ?>
