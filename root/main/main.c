@@ -6,11 +6,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 
 #define ProgramManagerSocket "/tmp/programManager.socket"
 #define alarmSocket "/tmp/alarm.socket"
 #define lockSocket "/tmp/lock.socket"
 #define databaseSocket "/tmp/dataBase.socket"
+
+void terminate(int sig){
+	unlink(ProgramManagerSocket);
+	printf("Programa finalizado.\n");
+	exit(1);
+}
 
 int main(){	
 
@@ -35,8 +42,8 @@ int main(){
 	char buff[11];
 	char cmd[3];
 	int alarm_flag = 0;
-	memset(buff,0, 11);
-	memset(cmd, 0, 11);
+	memset(buff,'0', 11);
+	memset(cmd, '0', 3);
 	
 	pmsock = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -63,13 +70,18 @@ int main(){
 	
 	peer_addr_size = sizeof(struct sockaddr_un);
 
+	signal(SIGINT, terminate);
+
 	while(1){
 
-		peersock = accept(pmsock, (struct sockaddr *) &peer_addr, &peer_addr_size);				
-		read(peersock,buff,10);
-		printf("=============================================================\n");
-		printf("=============================================================\n");		
-		printf("Message recieved: %s.\n",buff);
+		peersock = accept(pmsock, (struct sockaddr *) &peer_addr, &peer_addr_size);		
+
+		if(peersock){				
+			read(peersock,buff,10);
+			printf("=============================================================\n");
+			printf("=============================================================\n");		
+			printf("Message recieved: %s.\n",buff);
+		}
 
 		cmd[0] = buff[0];
 		cmd[1] = buff[1];
@@ -347,13 +359,9 @@ int main(){
 				printf("=============================================================\n");
 				printf("Unknown command.\n");
 				break;
-		}
-		
-		cmd[0] = '0';
-		cmd[1] = '0';
-		cmd[2] = '\0';
+		}		
 
-		memset(buff,0,14*sizeof(char));
+		memset(buff,'0',11);
 		
 		close(peersock);
 		
@@ -361,6 +369,8 @@ int main(){
 
 	close(pmsock);
 	unlink(ProgramManagerSocket);
+
+	printf("Programa encerrado.\n");
 	
-	return 0;
+	return EXIT_SUCCESS;
 }
