@@ -23,11 +23,14 @@ while True:
 		except socket.error:
 			print("Socket error")
 			continue
+		except KeyboardInterrupt:
+			break
 		finally:
 			sock.close()	
 		print('Menssagem enviada')
 		time.sleep(3)
 		
+print("Programa encerrado.")
 
 	
 

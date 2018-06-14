@@ -66,7 +66,7 @@ while True:
 		print("Unknown command")
 
 
-
+print("Programa encerrado.")
 sock.close()
 os.unlink(lockSocket)
 

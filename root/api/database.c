@@ -7,10 +7,16 @@
 #include <unistd.h>
 #include <mysql/mysql.h>
 #include <errno.h>
+#include <signal.h>
 
 #define ProgramManagerSocket "/tmp/programManager.socket"
 #define databaseSocket "/tmp/dataBase.socket"
 
+void terminate(int sig){
+	unlink(databaseSocket);
+	printf("Programa finalizado.\n");
+	exit(1);
+}
 
 int main(){
 
@@ -31,7 +37,7 @@ int main(){
 	char buff[10];
 	char cmd[3];
 	char data[9];
-	memset(buff,0,10);
+	memset(buff,'0',10);
 
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -57,6 +63,8 @@ int main(){
 	}	
 	
 	peer_addr_size = sizeof(struct sockaddr_un);
+
+	signal(SIGINT, terminate);
 
 	while(1){
 
